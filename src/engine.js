@@ -206,7 +206,11 @@ export class Game {
     this.#startTurn();
   }
 
-  playCard(handUid, { target = null } = {}) {
+  /**
+   * Play a card from hand. `position` is the board slot for a minion
+   * (0 = leftmost); it defaults to the right end and is clamped to the board.
+   */
+  playCard(handUid, { target = null, position = null } = {}) {
     const pid = this.current;
     const blocker = this.playBlocker(pid, handUid);
     if (blocker) return this.#fail(blocker);
@@ -239,7 +243,7 @@ export class Game {
         if (def.onFriendlySpell && m.health > 0) this.#runEffects(def.onFriendlySpell, { player: pid, source: m });
       }
     } else if (card.type === 'minion') {
-      const minion = this.#summon(pid, card.id);
+      const minion = this.#summon(pid, card.id, position);
       if (card.battlecry) this.#runEffects(card.battlecry, { player: pid, source: minion, target: targetEnt });
       if (comboActive && card.combo) this.#runEffects(card.combo, { player: pid, source: minion, target: targetEnt });
     } else if (card.type === 'weapon') {
@@ -368,18 +372,20 @@ export class Game {
     this.#emit({ type: 'draw', player: p.id, uid: inst.uid });
   }
 
-  #summon(pid, cardId) {
+  #summon(pid, cardId, position = null) {
     const p = this.players[pid];
     if (p.board.length >= MAX_BOARD) return null;
+    const index = position == null ? p.board.length : Math.max(0, Math.min(p.board.length, Math.trunc(position)));
     const def = CARDS[cardId];
     const m = {
       uid: this.nextUid++, kind: 'minion', cardId, owner: pid,
       attack: def.attack, health: def.health, maxHealth: def.health,
       keywords: { ...def.keywords }, spellDamage: def.spellDamage || 0,
-      sleeping: true, attacksThisTurn: 0, frozen: false, frozenTurn: -1, destroyed: false,
+      sleeping: true, attacksThisTurn: 0, frozen: false, frozenTurn: -1, destroyed: false, aura: 0,
     };
-    p.board.push(m);
-    this.#emit({ type: 'summon', uid: m.uid, player: pid, cardId });
+    p.board.splice(index, 0, m);
+    this.#refreshAuras();
+    this.#emit({ type: 'summon', uid: m.uid, player: pid, cardId, index });
     return m;
   }
 
@@ -445,9 +451,14 @@ export class Game {
       const dying = [];
       for (const pid of [this.current, 1 - this.current]) {
         const p = this.players[pid];
-        for (const m of p.board) if (m.health <= 0 || m.destroyed) dying.push(m);
+        let survivors = 0;
+        for (const m of p.board) {
+          // Remember where it died so deathrattle summons appear in its place.
+          if (m.health <= 0 || m.destroyed) { m.deathIndex = survivors; dying.push(m); } else survivors++;
+        }
         p.board = p.board.filter(m => !(m.health <= 0 || m.destroyed));
       }
+      if (dying.length) this.#refreshAuras();
       for (const m of dying) {
         this.#emit({ type: 'death', uid: m.uid });
         const def = CARDS[m.cardId];
@@ -460,6 +471,25 @@ export class Game {
       this.winner = dead.length === 2 ? 'draw' : 1 - dead[0].id;
       this.phase = 'over';
       this.#emit({ type: 'gameOver', winner: this.winner });
+    }
+  }
+
+  /**
+   * Re-apply adjacency auras after the board changes. Each minion tracks the
+   * aura Attack it currently has, so only the difference is applied.
+   */
+  #refreshAuras() {
+    for (const p of this.players) {
+      p.board.forEach((m, i) => {
+        let bonus = 0;
+        for (const n of [p.board[i - 1], p.board[i + 1]]) {
+          if (n && !(n.health <= 0 || n.destroyed)) bonus += CARDS[n.cardId].adjacentAura?.attack ?? 0;
+        }
+        if (bonus !== m.aura) {
+          m.attack += bonus - m.aura;
+          m.aura = bonus;
+        }
+      });
     }
   }
 
@@ -486,6 +516,11 @@ export class Game {
       case 'randomEnemy': return this.#pickRandom([them.hero, ...alive(them.board)]);
       case 'randomEnemyMinion': return this.#pickRandom(alive(them.board));
       case 'randomFriendlyMinion': return this.#pickRandom(alive(me.board));
+      case 'adjacent': {
+        const board = src?.kind === 'minion' ? this.players[src.owner].board : [];
+        const i = board.indexOf(src);
+        return i < 0 ? [] : alive([board[i - 1], board[i + 1]].filter(Boolean));
+      }
       default: throw new Error(`Unknown selector ${to}`);
     }
   }
@@ -540,8 +575,23 @@ export class Game {
       case 'draw':
         for (let i = 0; i < eff.count; i++) this.#draw(me);
         break;
-      case 'summon':
-        for (let i = 0; i < (eff.count || 1); i++) this.#summon(ctx.player, eff.card);
+      case 'summon': {
+        // Tokens from a minion appear to its right; deathrattle tokens take its
+        // old spot; anything else (spells, hero powers) goes on the right end.
+        const src = ctx.source;
+        const board = me.board;
+        let at = null;
+        if (src?.kind === 'minion' && src.owner === ctx.player) {
+          const i = board.indexOf(src);
+          if (i >= 0) at = i + 1;
+          else if (src.deathIndex != null) at = Math.min(src.deathIndex, board.length);
+        }
+        for (let i = 0; i < (eff.count || 1); i++) {
+          const m = this.#summon(ctx.player, eff.card, at);
+          if (m && at != null) at++;
+        }
+        break;
+      }
         break;
       case 'buff':
         for (const t of this.#select(eff.to, ctx)) {
@@ -582,6 +632,7 @@ export class Game {
           if (t.kind !== 'minion') continue;
           const owner = this.players[t.owner];
           owner.board = owner.board.filter(m => m !== t);
+          this.#refreshAuras();
           this.#emit({ type: 'bounce', uid: t.uid, ...this.#meta(ctx.source) });
           if (owner.hand.length < MAX_HAND) owner.hand.push({ uid: this.nextUid++, cardId: t.cardId });
         }

@@ -5,7 +5,10 @@
 //   target, self, ownHero, enemyHero, allEnemyMinions, allFriendlyMinions,
 //   otherFriendlyMinions, allMinions, allOtherMinions, allEnemies,
 //   allFriendly, allOtherCharacters, randomEnemy, randomEnemyMinion,
-//   randomFriendlyMinion
+//   randomFriendlyMinion, adjacent (the minions on either side of this one)
+//
+// `adjacentAura: { attack }` gives the minions on either side bonus Attack
+// for as long as they stay next to it.
 //
 // Target specs (for cards / hero powers that ask the player to pick):
 //   any, minion, enemyMinion, friendlyMinion, enemy, friendly
@@ -79,6 +82,13 @@ const RAW_CARDS = [
     keywords: { stealth: true } },
   { id: 'n_medic', name: 'Field Medic', type: 'minion', cost: 3, attack: 3, health: 2, emoji: '🩹',
     text: 'Battlecry: Restore 4 Health to your hero.', battlecry: [{ type: 'heal', amount: 4, to: 'ownHero' }] },
+  { id: 'n_warhorn', name: 'Warhorn Totem', type: 'minion', cost: 2, attack: 0, health: 3, emoji: '📯',
+    text: 'Adjacent minions have +2 Attack.', adjacentAura: { attack: 2 } },
+  { id: 'n_bannerbearer', name: 'Banner Bearer', type: 'minion', cost: 3, attack: 2, health: 3, emoji: '🎏',
+    text: 'Battlecry: Give adjacent minions +1/+1.', battlecry: [{ type: 'buff', attack: 1, health: 1, to: 'adjacent' }] },
+  { id: 'n_sergeant', name: 'Shieldwall Sergeant', type: 'minion', cost: 4, attack: 3, health: 4, emoji: '🪖',
+    text: 'Battlecry: Give adjacent minions +1 Health and Taunt.',
+    battlecry: [{ type: 'buff', health: 1, keywords: { taunt: true }, to: 'adjacent' }] },
   { id: 'n_golem', name: 'Shatterstone Golem', type: 'minion', cost: 4, attack: 3, health: 3, emoji: '🪨',
     text: 'Deathrattle: Summon a 2/2 Shardling.', deathrattle: [{ type: 'summon', card: 't_shardling' }] },
   { id: 'n_stormcaller', name: 'Stormcaller Adept', type: 'minion', cost: 4, attack: 3, health: 4, emoji: '⚡',
@@ -189,7 +199,7 @@ const RAW_CARDS = [
     text: 'Battlecry: Summon a 1/1 Recruit.', battlecry: [{ type: 'summon', card: 't_recruit' }] },
   { id: 'v_shieldmaiden', cls: 'vanguard', name: 'Gleaming Shieldmaiden', type: 'minion', cost: 3, attack: 2, health: 3, emoji: '🛡️',
     keywords: { taunt: true, divineShield: true } },
-  { id: 'v_banner', cls: 'vanguard', name: 'Rallying Banner', type: 'spell', cost: 3, emoji: '🚩',
+  { id: 'v_banner', cls: 'vanguard', name: 'Rallying Banner', type: 'spell', cost: 4, emoji: '🚩',
     text: 'Give all friendly minions +1/+1.', effects: [{ type: 'buff', attack: 1, health: 1, to: 'allFriendlyMinions' }] },
   { id: 'v_hammer', cls: 'vanguard', name: 'Oathkeeper Hammer', type: 'weapon', cost: 4, attack: 3, durability: 3, emoji: '🔨' },
   { id: 'v_hallowed', cls: 'vanguard', name: 'Hallowed Ground', type: 'spell', cost: 5, emoji: '🌟',
@@ -242,6 +252,7 @@ export const KEYWORD_HELP = {
   battlecry: 'Does something when played from hand.',
   deathrattle: 'Does something when it dies.',
   combo: 'Bonus if you already played a card this turn.',
+  adjacent: 'The minions directly to the left and right.',
   freeze: "Frozen characters lose their next attack.",
 };
 

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Game } from '../src/engine.js';
 import { CARDS, CLASSES, buildDeck } from '../src/cards.js';
-import { playTurn, mulliganChoice } from '../src/ai.js';
+import { playTurn, mulliganChoice, nextAction, applyAction } from '../src/ai.js';
 
 const filler = Array(30).fill('n_ram');
 
@@ -154,7 +154,7 @@ test('deathrattle and battlecry', () => {
   g.players[0].hand = [];
   golem.health = 0;
   g.playCard(give(g, 0, 'n_mossling'));
-  assert.equal(g.players[0].board.map(m => m.cardId).join(), 'n_mossling,t_shardling');
+  assert.equal(g.players[0].board.map(m => m.cardId).join(), 't_shardling,n_mossling', 'token takes the dead golem\'s spot');
 
   const hp = g.players[1].hero.health;
   g.playCard(give(g, 0, 'n_lanternmoth'), { target: g.players[1].hero.uid });
@@ -225,6 +225,95 @@ test('board is capped at 7', () => {
   const g = setup();
   for (let i = 0; i < 7; i++) put(g, 0, 'n_mossling');
   assert.equal(g.playBlocker(0, give(g, 0, 'n_mossling')), 'Board is full');
+});
+
+test('the 7-minion cap also limits summons from spells, battlecries and hero powers', () => {
+  const g = setup({ classes: ['vanguard', 'stalker'] });
+  for (let i = 0; i < 5; i++) put(g, 0, 'n_mossling');
+  g.playCard(give(g, 0, 'v_captain')); // 2/2 + Recruit -> 7
+  assert.equal(g.players[0].board.length, 7);
+  assert.equal(g.canUseHeroPower(0), false, 'Muster is disabled on a full board');
+
+  const h = setup({ classes: ['stalker', 'vanguard'] });
+  for (let i = 0; i < 6; i++) put(h, 0, 'n_mossling');
+  h.playCard(give(h, 0, 's_pack')); // two wolves, room for one
+  assert.equal(h.players[0].board.length, 7);
+});
+
+test('minions can be placed at a chosen position', () => {
+  const g = setup();
+  const a = put(g, 0, 'n_mossling');
+  const b = put(g, 0, 'n_scrapper');
+  g.playCard(give(g, 0, 'n_ram'), { position: 1 });
+  assert.deepEqual(g.players[0].board.map(m => m.cardId), ['n_mossling', 'n_ram', 'n_scrapper']);
+  g.playCard(give(g, 0, 'n_boar'), { position: 0 });
+  g.players[0].mana = 10;
+  g.playCard(give(g, 0, 'n_leechbat'), { position: 99 }); // clamped to the right end
+  assert.deepEqual(g.players[0].board.map(m => m.cardId), ['n_boar', 'n_mossling', 'n_ram', 'n_scrapper', 'n_leechbat']);
+  assert.ok(a && b);
+});
+
+test('battlecry tokens appear to the right; deathrattle tokens take the dead minion\'s spot', () => {
+  const g = setup({ classes: ['vanguard', 'stalker'] });
+  put(g, 0, 'n_mossling');
+  put(g, 0, 'n_scrapper');
+  g.playCard(give(g, 0, 'v_captain'), { position: 1 });
+  assert.deepEqual(g.players[0].board.map(m => m.cardId), ['n_mossling', 'v_captain', 't_recruit', 'n_scrapper']);
+
+  const golem = put(g, 0, 'n_golem');
+  g.players[0].board.splice(g.players[0].board.indexOf(golem), 1);
+  g.players[0].board.splice(1, 0, golem); // move the golem to slot 1
+  golem.destroyed = true;
+  g.endTurn();
+  assert.equal(g.players[0].board[1].cardId, 't_shardling');
+});
+
+test('adjacent battlecries hit only the neighbors', () => {
+  const g = setup();
+  const left = put(g, 0, 'n_mossling');
+  const far = put(g, 0, 'n_scrapper');
+  g.playCard(give(g, 0, 'n_bannerbearer'), { position: 1 }); // between mossling and scrapper
+  assert.equal(left.attack, 3);
+  assert.equal(far.attack, 4);
+  const edge = put(g, 0, 'n_ram');
+  g.playCard(give(g, 0, 'n_sergeant'), { position: 4 }); // right end: one neighbor
+  assert.equal(edge.keywords.taunt, true);
+  assert.equal(edge.health, 6);
+  assert.equal(far.keywords.taunt, undefined);
+});
+
+test('adjacency auras follow the board as minions come and go', () => {
+  const g = setup();
+  const a = put(g, 0, 'n_mossling');      // 2 attack
+  const totem = put(g, 0, 'n_warhorn');
+  assert.equal(a.attack, 4);
+  const b = put(g, 0, 'n_scrapper');      // 3 attack, lands right of the totem
+  assert.equal(b.attack, 5);
+  const c = put(g, 0, 'n_ram');           // not adjacent
+  assert.equal(c.attack, 4);
+  b.health = 0;
+  g.endTurn();                            // scrapper dies; ram slides next to the totem
+  assert.equal(c.attack, 6);
+  totem.destroyed = true;
+  g.endTurn();
+  assert.equal(a.attack, 2);
+  assert.equal(c.attack, 4);
+});
+
+test('AI places adjacency minions between its best minions', () => {
+  const g = setup();
+  g.current = 1;
+  put(g, 1, 'n_mossling');
+  put(g, 1, 'n_treant');
+  put(g, 1, 'n_ram');
+  g.current = 1;
+  give(g, 1, 'n_bannerbearer');
+  const action = nextAction(g, 1);
+  assert.equal(action.type, 'play');
+  assert.ok(action.position === 1 || action.position === 2, `position ${action.position}`);
+  assert.ok(applyAction(g, action));
+  const board = g.players[1].board.map(m => m.cardId);
+  assert.ok(board.indexOf('n_bannerbearer') > 0 && board.indexOf('n_bannerbearer') < 3);
 });
 
 test('AI vs AI games finish for every class pairing', () => {

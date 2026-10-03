@@ -15,11 +15,13 @@ It has no dependencies and no build step. ES modules don't load over `file://`, 
 
 - Each hero starts with 30 Health. You gain a Mana Crystal every turn, up to 10.
 - The player going first starts with 3 cards. The player going second starts with 4 cards plus the **Ember Coin** (gain 1 mana this turn). You can mulligan your opening hand.
-- **Click a card** to play it. If it needs a target, valid targets glow red and you click one.
+- **Drag a minion** onto your side of the board and drop it where you want it; a gap opens to show where it will land. You can also click the minion, then click a spot on the board (handy on touch screens).
+- **Click a spell** to cast it. If a card needs a target, valid targets glow red and you click one.
 - **Click a minion (or your armed hero)** that glows green, then click what it should attack.
 - **Hero power** costs 2 and can be used once per turn.
 - Right-click or press Esc to cancel a selection. Hover any minion or weapon to read its full card.
-- Boards hold 7 minions and hands hold 10 cards; a card drawn into a full hand is burned. Drawing from an empty deck deals growing fatigue damage.
+- Position matters: some minions affect the minions **adjacent** to them. Tokens from a Battlecry appear to the minion's right, and Deathrattle tokens take the dead minion's spot.
+- Boards hold 7 minions (extra summons are lost) and hands hold 10 cards; a card drawn into a full hand is burned. Drawing from an empty deck deals growing fatigue damage.
 
 ### Effects and sound
 
@@ -72,6 +74,7 @@ Cards are plain data. Effects use a small vocabulary that the engine interprets:
 
 - **Effect types:** `damage`, `heal`, `armor`, `draw`, `summon`, `buff`, `destroy`, `freeze`, `weapon`, `buffWeapon`, `mana`, `bounce`, `copyFromOpponentDeck`
 - **Hooks:** `effects` (spells), `battlecry`, `deathrattle`, `combo`, `endOfTurn`, `onDamaged`, `onFriendlySpell`
+- **Adjacency:** use `to: 'adjacent'` for the minions on either side, or `adjacentAura: { attack }` for an ongoing bonus to neighbours
 - **Targets** (`target`): `any`, `minion`, `enemyMinion`, `friendlyMinion`, `enemy`, `friendly`. Narrow them with `targetFilter: { maxAttack, minAttack, damaged, undamaged }`.
 
 The full list of selectors for `to` is at the top of `src/cards.js`.

@@ -176,7 +176,7 @@ body.in-game #table { padding-right: 16px; }
 .crystals i.spent { background: #3c4f68; }
 
 .lane {
-  display: flex; justify-content: center; align-items: center; gap: clamp(4px, 1vw, 12px);
+  position: relative; display: flex; justify-content: center; align-items: center; gap: clamp(4px, 1vw, 12px);
   min-height: calc(var(--minion-w) * 1.3 + 12px);
 }
 .midline { display: flex; justify-content: flex-end; align-items: center; border-top: 1px solid #ffffff14; border-bottom: 1px solid #0006; height: 0; position: relative; }
@@ -312,3 +312,25 @@ body.in-game #table { padding-right: 16px; }
   border: 2px solid #6b5536; background: #2a2119cc; font-size: 18px; cursor: pointer; display: grid; place-items: center;
 }
 .sound-btn:hover { filter: brightness(1.25); }
+
+/* ---------------------------------------------------------------- placement */
+
+.hand-card { touch-action: none; }
+.you-lane.placing { outline: 2px dashed #e8c46a66; outline-offset: -4px; border-radius: 18px; }
+.slot {
+  align-self: stretch; width: 8px; margin: 6px -4px; border-radius: 12px;
+  transition: width .15s ease-out, margin .15s ease-out, background .15s;
+}
+.slot.hot {
+  width: calc(var(--minion-w) * .95); margin: 6px 2px;
+  background: radial-gradient(ellipse, #e8c46a40, transparent 70%); box-shadow: inset 0 0 0 2px #e8c46a;
+}
+.unit.ghost { opacity: .5; border-style: dashed; pointer-events: none; animation: ghost-pulse 1.2s infinite; }
+@keyframes ghost-pulse { 50% { opacity: .75; } }
+.drag-card {
+  position: fixed; z-index: 48; pointer-events: none; --card-w: clamp(90px, 14vh, 120px);
+  transform: translate(-50%, -60%) rotate(-4deg); transition: transform .12s;
+  filter: drop-shadow(0 14px 26px #000c);
+}
+.drag-card.over-board { transform: translate(-50%, -60%) scale(.8); }
+body.busy .end-turn { opacity: .55; cursor: default; }

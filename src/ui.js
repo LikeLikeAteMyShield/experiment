@@ -12,6 +12,12 @@ const $ = sel => document.querySelector(sel);
 const sleep = fx.sleep;
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
+/** While effects play, input is ignored; the body class lets CSS show it. */
+function setBusy(value) {
+  ui.busy = value;
+  document.body.classList.toggle('busy', value);
+}
+
 const ui = {
   game: null,
   playerClass: null,
@@ -62,7 +68,7 @@ function startGame() {
   const aiClass = ui.aiClass === 'random' ? keys[Math.floor(Math.random() * keys.length)] : ui.aiClass;
   ui.game = new Game({ classes: [ui.playerClass, aiClass], seed: Date.now() });
   ui.selection = null;
-  ui.busy = false;
+  setBusy(false);
   ui.mulliganPicks = new Set();
   $('#log').innerHTML = '';
   $('#overlay').classList.add('hidden');
@@ -154,6 +160,7 @@ function minionHTML(m, targets) {
   const icons = [
     def.deathrattle ? '<span title="Deathrattle">💀</span>' : '',
     def.endOfTurn || def.onDamaged || def.onFriendlySpell ? '<span title="Triggered effect">⚡</span>' : '',
+    def.adjacentAura ? '<span title="Aura: affects adjacent minions">✨</span>' : '',
     m.keywords.poisonous ? '<span title="Poisonous">☠️</span>' : '',
     m.keywords.lifesteal ? '<span title="Lifesteal">🩸</span>' : '',
     m.keywords.windfury ? '<span title="Windfury">🌪</span>' : '',
@@ -226,12 +233,16 @@ function render() {
 
   const handCards = me.hand.map((inst, i) => {
     const playable = myTurn && g.canPlay(HUMAN, inst.uid);
-    const selected = ui.selection?.type === 'hand' && ui.selection.uid === inst.uid;
+    const selected = (ui.selection?.type === 'hand' || ui.selection?.type === 'place') && ui.selection.uid === inst.uid;
     const n = me.hand.length;
     const rot = n > 1 ? (i - (n - 1) / 2) * Math.min(6, 40 / n) : 0;
     return `<div class="hand-card${playable ? ' playable' : ''}${selected ? ' selected' : ''}" data-hand="${inst.uid}" data-card="${inst.cardId}" style="--rot:${rot}deg">
       ${cardHTML(inst.cardId)}</div>`;
   }).join('');
+
+  // Remember where minions were so position changes can slide instead of jump.
+  const before = new Map([...document.querySelectorAll('#table .lane > .unit[data-uid]')]
+    .map(n => [n.dataset.uid, n.getBoundingClientRect().left]));
 
   $('#table').innerHTML = `
     <div class="foe-hand">${foe.hand.map(() => '<div class="card-back"></div>').join('')}</div>
@@ -242,10 +253,79 @@ function render() {
         ${g.current === HUMAN ? 'End turn' : 'Enemy turn'}
       </button>
     </div>
-    <div class="lane you-lane">${me.board.map(m => minionHTML(m, targets)).join('')}</div>
+    <div class="lane you-lane${ui.selection?.type === 'place' ? ' placing' : ''}">${youLaneHTML(me, targets)}</div>
     ${heroHTML(HUMAN, targets)}
     <div class="hand">${handCards}</div>`;
   $('#table').classList.toggle('targeting', !!ui.selection);
+  slideFrom(before);
+}
+
+/** Your lane, with drop slots while placing or a ghost where a minion will go. */
+function youLaneHTML(me, targets) {
+  const sel = ui.selection;
+  const units = me.board.map(m => minionHTML(m, targets));
+  if (sel?.type === 'place') {
+    const parts = [];
+    for (let i = 0; i <= units.length; i++) {
+      parts.push(`<div class="slot" data-slot="${i}"></div>`);
+      if (i < units.length) parts.push(units[i]);
+    }
+    return parts.join('');
+  }
+  if (sel?.type === 'hand' && sel.position != null) {
+    const def = CARDS[me.hand.find(c => c.uid === sel.uid)?.cardId];
+    if (def) units.splice(sel.position, 0, ghostHTML(def));
+  }
+  return units.join('');
+}
+
+function ghostHTML(def) {
+  return `<div class="unit ghost" style="--cls:${CLASSES[def.cls]?.color ?? '#8a8f98'}">
+    <div class="unit-art">${def.emoji}</div>
+    <span class="stat atk">${def.attack}</span><span class="stat hp">${def.health}</span></div>`;
+}
+
+/** FLIP: animate minions from their old x positions to their new ones. */
+function slideFrom(before) {
+  if (fx.reducedMotion || !before.size) return;
+  for (const n of document.querySelectorAll('#table .lane > .unit[data-uid]')) {
+    const x0 = before.get(n.dataset.uid);
+    if (x0 == null) continue;
+    const dx = x0 - n.getBoundingClientRect().left;
+    if (Math.abs(dx) > 1) n.animate([{ transform: `translateX(${dx}px)` }, { transform: 'none' }], { duration: 220, easing: 'ease-out' });
+  }
+}
+
+/** Board slot (0 = leftmost) for a pointer x position over your lane. */
+function insertionIndex(clientX) {
+  const lane = $('#table .you-lane');
+  const units = [...lane.querySelectorAll(':scope > .unit[data-uid]')];
+  // Layout positions (offsetLeft) ignore in-flight slide animations.
+  const left = lane.getBoundingClientRect().left;
+  const i = units.findIndex(u => clientX < left + u.offsetLeft + u.offsetWidth / 2);
+  return i === -1 ? units.length : i;
+}
+
+function overYourLane(x, y) {
+  const lane = $('#table .you-lane');
+  if (!lane) return false;
+  const r = lane.getBoundingClientRect();
+  return y >= r.top - 40 && y <= r.bottom + 30;
+}
+
+function highlightSlot(x, y) {
+  const hot = overYourLane(x, y) ? insertionIndex(x) : -1;
+  document.querySelectorAll('#table .slot').forEach(s => s.classList.toggle('hot', Number(s.dataset.slot) === hot));
+}
+
+/** Position chosen: target next if the battlecry needs one, otherwise play now. */
+function choosePlacement(uid, position, fromRect) {
+  if (ui.game.cardTargets(HUMAN, uid).length) {
+    sfx.click();
+    ui.selection = { type: 'hand', uid, position };
+    return render();
+  }
+  return act(() => ui.game.playCard(uid, { position }), { handUid: uid, fromRect });
 }
 
 function hasMovesLeft() {
@@ -428,6 +508,7 @@ function landEffect(ev, { combat = false } = {}) {
       sfx.destroy();
       break;
     case 'bounce':
+      if (node) node.dataset.gone = '1';
       node?.animate([{ transform: 'none', opacity: 1 }, { transform: 'translateY(-70px) scale(.5)', opacity: 0 }],
         { duration: 400, easing: 'ease-in', fill: 'forwards' });
       fx.sparkle(node, { color: '#c9a8ff' });
@@ -532,7 +613,13 @@ async function summonFx(ev, st) {
       uid: ev.uid, kind: 'minion', cardId: ev.cardId, owner: ev.player, attack: def.attack, health: def.health,
       maxHealth: def.health, keywords: { ...def.keywords }, spellDamage: def.spellDamage || 0, sleeping: true,
     };
-    $(ev.player === HUMAN ? '.you-lane' : '.foe-lane').insertAdjacentHTML('beforeend', minionHTML(ent, new Set()));
+    const lane = $(ev.player === HUMAN ? '.you-lane' : '.foe-lane');
+    const units = [...lane.querySelectorAll(':scope > .unit[data-uid]:not([data-gone])')];
+    const before = new Map(units.map(n => [n.dataset.uid, n.getBoundingClientRect().left]));
+    const ref = units[ev.index ?? units.length];
+    if (ref) ref.insertAdjacentHTML('beforebegin', minionHTML(ent, new Set()));
+    else lane.insertAdjacentHTML('beforeend', minionHTML(ent, new Set()));
+    slideFrom(before);
     node = nodeOf(ev.uid);
   }
   const cost = CARDS[ev.cardId].cost;
@@ -621,6 +708,7 @@ function armorFx(ev) {
 async function deathFx(ev) {
   const node = nodeOf(ev.uid);
   if (!node) return;
+  node.dataset.gone = '1';
   await sleep(140);
   const color = classColor(node.dataset.card, '#c9b9a0');
   sfx.death();
@@ -688,22 +776,23 @@ function showResult() {
 
 // ------------------------------------------------------------------ input
 
-async function act(fn, { handUid } = {}) {
+async function act(fn, { handUid, fromRect: dropRect } = {}) {
   ui.selection = null;
-  ui.busy = true;
+  setBusy(true);
   const handCard = handUid != null ? document.querySelector(`[data-hand="${handUid}"]`) : null;
-  const fromRect = handCard?.querySelector('.card').getBoundingClientRect() ?? null;
+  const fromRect = dropRect ?? handCard?.querySelector('.card').getBoundingClientRect() ?? null;
+  document.querySelectorAll('#table .slot, #table .unit.ghost').forEach(n => n.remove());
   const ok = fn();
   if (!ok && ui.game.lastError) toast(ui.game.lastError);
   else if (handCard) handCard.style.visibility = 'hidden';
   await flushEvents({ fromRect });
-  ui.busy = false;
+  setBusy(false);
   render();
 }
 
 $('#table').addEventListener('click', e => {
   const g = ui.game;
-  if (!g || ui.busy || g.current !== HUMAN || g.winner !== null) return;
+  if (!g || ui.busy || g.current !== HUMAN || g.winner !== null || ui.suppressClick) return;
 
   if (e.target.closest('#end-turn')) { sfx.click(); endPlayerTurn(); return; }
 
@@ -716,17 +805,28 @@ $('#table').addEventListener('click', e => {
   if (sel && entEl) {
     const uid = Number(entEl.dataset.uid);
     if (targetSet().has(uid)) {
-      if (sel.type === 'hand') return act(() => g.playCard(sel.uid, { target: uid }), { handUid: sel.uid });
+      if (sel.type === 'hand') return act(() => g.playCard(sel.uid, { target: uid, position: sel.position }), { handUid: sel.uid });
       if (sel.type === 'heroPower') return act(() => g.useHeroPower(uid));
       if (sel.type === 'attacker') return act(() => g.attack(sel.uid, uid));
     }
   }
 
+  // Placing a minion: a click on your side of the board picks the slot.
+  if (sel?.type === 'place' && !handEl && overYourLane(e.clientX, e.clientY)) {
+    return choosePlacement(sel.uid, insertionIndex(e.clientX));
+  }
+
   if (handEl) {
     const uid = Number(handEl.dataset.hand);
-    if (sel?.type === 'hand' && sel.uid === uid) { ui.selection = null; return render(); }
+    if ((sel?.type === 'hand' || sel?.type === 'place') && sel.uid === uid) { ui.selection = null; return render(); }
     const blocker = g.playBlocker(HUMAN, uid);
     if (blocker) { toast(blocker); return; }
+    if (CARDS[handEl.dataset.card].type === 'minion') {
+      if (!g.players[HUMAN].board.length) return choosePlacement(uid, 0);
+      sfx.click();
+      ui.selection = { type: 'place', uid };
+      return render();
+    }
     if (g.cardTargets(HUMAN, uid).length) { sfx.click(); ui.selection = { type: 'hand', uid }; return render(); }
     return act(() => g.playCard(uid), { handUid: uid });
   }
@@ -757,6 +857,55 @@ $('#table').addEventListener('click', e => {
   if (sel) { ui.selection = null; render(); }
 });
 
+// Drag a minion from your hand onto the board to place it.
+let drag = null;
+
+$('#table').addEventListener('pointerdown', e => {
+  const g = ui.game;
+  const handEl = e.target.closest('[data-hand]');
+  if (!handEl || !g || ui.busy || g.current !== HUMAN || g.winner !== null || e.button > 0) return;
+  drag = { uid: Number(handEl.dataset.hand), cardId: handEl.dataset.card, x: e.clientX, y: e.clientY, ghost: null };
+});
+
+addEventListener('pointermove', e => {
+  if (!drag) {
+    if (ui.selection?.type === 'place') highlightSlot(e.clientX, e.clientY);
+    return;
+  }
+  if (!drag.ghost) {
+    if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 10) return;
+    if (CARDS[drag.cardId].type !== 'minion') { drag = null; return; } // spells stay click-to-cast
+    const blocker = ui.game.playBlocker(HUMAN, drag.uid);
+    if (blocker) { toast(blocker); drag = null; return; }
+    ui.selection = { type: 'place', uid: drag.uid };
+    render();
+    document.querySelector(`[data-hand="${drag.uid}"]`)?.style.setProperty('visibility', 'hidden');
+    drag.ghost = document.createElement('div');
+    drag.ghost.className = 'drag-card';
+    drag.ghost.innerHTML = cardHTML(drag.cardId);
+    document.body.appendChild(drag.ghost);
+    sfx.click();
+  }
+  drag.ghost.style.left = `${e.clientX}px`;
+  drag.ghost.style.top = `${e.clientY}px`;
+  drag.ghost.classList.toggle('over-board', overYourLane(e.clientX, e.clientY));
+  highlightSlot(e.clientX, e.clientY);
+});
+
+function endDrag(e, drop) {
+  const d = drag;
+  drag = null;
+  if (!d?.ghost) return; // never moved: let the normal click handler run
+  const rect = d.ghost.querySelector('.card').getBoundingClientRect();
+  d.ghost.remove();
+  ui.suppressClick = true;
+  setTimeout(() => { ui.suppressClick = false; }, 0);
+  if (drop && overYourLane(e.clientX, e.clientY)) choosePlacement(d.uid, insertionIndex(e.clientX), rect);
+  else { ui.selection = null; render(); }
+}
+addEventListener('pointerup', e => endDrag(e, true));
+addEventListener('pointercancel', e => endDrag(e, false));
+
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && ui.selection) { ui.selection = null; render(); }
 });
@@ -777,7 +926,8 @@ document.addEventListener('mouseover', e => {
     const card = CARDS[el.dataset.card];
     const kws = [...Object.keys(card.keywords).filter(k => card.keywords[k]),
       ...(card.spellDamage ? ['spellDamage'] : []), ...(card.battlecry ? ['battlecry'] : []),
-      ...(card.deathrattle ? ['deathrattle'] : []), ...(card.combo ? ['combo'] : [])];
+      ...(card.deathrattle ? ['deathrattle'] : []), ...(card.combo ? ['combo'] : []),
+      ...(/adjacent/i.test(card.text ?? '') ? ['adjacent'] : [])];
     html = cardHTML(card.id) + kws.map(k => `<div class="kw-help"><b>${KEYWORD_LABELS[k] ?? k[0].toUpperCase() + k.slice(1).replace('Damage', ' Damage')}</b>: ${KEYWORD_HELP[k]}</div>`).join('');
   }
   tip.innerHTML = html;
@@ -792,7 +942,7 @@ document.addEventListener('mouseover', e => {
 
 async function endPlayerTurn() {
   ui.selection = null;
-  ui.busy = true;
+  setBusy(true);
   ui.game.endTurn();
   await flushEvents();
   if (ui.game.winner === null) await runAiTurn();
@@ -805,7 +955,7 @@ function yourTurn() {
 
 async function runAiTurn() {
   const g = ui.game;
-  ui.busy = true;
+  setBusy(true);
   render();
   await banner("Opponent's turn");
   await flushEvents();
@@ -824,7 +974,7 @@ async function runAiTurn() {
     g.endTurn();
     await flushEvents();
   }
-  ui.busy = false;
+  setBusy(false);
   render();
   if (g.winner === null) yourTurn();
 }

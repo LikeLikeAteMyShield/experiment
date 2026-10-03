@@ -77,6 +77,28 @@ function chooseTarget(game, pid, card, targets) {
   return { ok: false };
 }
 
+/** Pick a board slot for a minion so adjacency effects land well. */
+export function choosePosition(game, pid, card) {
+  const board = game.players[pid].board;
+  const touchesNeighbors = card.adjacentAura || (card.battlecry || []).some(e => e.to === 'adjacent');
+  if (touchesNeighbors) {
+    // The gap whose neighbors are worth the most (both sides beats one).
+    let best = board.length, bestScore = -1;
+    for (let i = 0; i <= board.length; i++) {
+      const score = [board[i - 1], board[i]].filter(Boolean)
+        .reduce((sum, m) => sum + (card.adjacentAura ? m.attack : m.attack + m.health) + 10, 0);
+      if (score > bestScore) { best = i; bestScore = score; }
+    }
+    return best;
+  }
+  // Anything that attacks wants to stand next to an aura minion.
+  if (card.attack > 0) {
+    const totem = board.findIndex(m => CARDS[m.cardId].adjacentAura);
+    if (totem >= 0) return board[totem + 1] && !board[totem - 1] ? totem : totem + 1;
+  }
+  return board.length;
+}
+
 function planCardPlay(game, pid) {
   const p = game.players[pid];
   const options = [];
@@ -105,7 +127,11 @@ function planCardPlay(game, pid) {
     options.push({ inst, score: card.cost * 10 + (card.type === 'minion' ? 2 : 0), target });
   }
   options.sort((a, b) => b.score - a.score);
-  return options[0] ? { type: 'play', uid: options[0].inst.uid, target: options[0].target } : null;
+  const best = options[0];
+  if (!best) return null;
+  const card = CARDS[best.inst.cardId];
+  const position = card.type === 'minion' ? choosePosition(game, pid, card) : null;
+  return { type: 'play', uid: best.inst.uid, target: best.target, position };
 }
 
 function planHeroPower(game, pid) {
@@ -187,7 +213,7 @@ export function mulliganChoice(game, pid) {
 
 /** Apply an action produced by nextAction. Returns false if the engine rejected it. */
 export function applyAction(game, action) {
-  if (action.type === 'play') return game.playCard(action.uid, { target: action.target });
+  if (action.type === 'play') return game.playCard(action.uid, { target: action.target, position: action.position });
   if (action.type === 'heroPower') return game.useHeroPower(action.target);
   if (action.type === 'attack') return game.attack(action.uid, action.target);
   return false;
