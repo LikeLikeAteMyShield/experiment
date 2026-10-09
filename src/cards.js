@@ -187,6 +187,8 @@ const RAW_CARDS = [
   { id: 'n_colossus', name: 'Colossus of the Rift', type: 'minion', cost: 9, attack: 9, health: 9, emoji: '🌀', sprite: 'card_n_colossus',
     text: 'Battlecry: Deal 3 damage to all other characters.',
     battlecry: [{ type: 'damage', amount: 3, to: 'allOtherCharacters' }] },
+  { id: 'n_prisoner', name: 'Tortured Prisoner', type: 'minion', cost: 3, attack: 1, health: 4, emoji: '❔', sprite: 'card_n_prisoner',
+    text: 'Whenever this takes damage, draw a card.', onDamaged: [{ type: 'draw', count: 1 }] },
 
   // ---------- Pyromancer ----------
   { id: 'p_cinderbolt', cls: 'pyromancer', name: 'Cinder Bolt', type: 'spell', cost: 2, emoji: '☄️', sprite: 'card_p_cinderbolt',
