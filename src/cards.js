@@ -194,6 +194,8 @@ const RAW_CARDS = [
   { id: 'n_death', name: 'Bleeding Death', type: 'minion', cost: 8, attack: 5, health: 10, emoji: '❔', sprite: 'card_n_death',
     keywords: { charge: true, windfury: true }, text: 'Dies at the end of this turn.',
     endOfTurn: [{ type: 'destroy', to: 'self' }] },
+  { id: 'n_aura', name: 'Healing Aura', type: 'spell', cost: 0, emoji: '❔', sprite: 'card_n_aura',
+    text: 'Restore 2 Health', target: 'any', effects: [{ type: 'heal', amount: 2, to: 'target' }] },
 
   // ---------- Pyromancer ----------
   { id: 'p_cinderbolt', cls: 'pyromancer', name: 'Cinder Bolt', type: 'spell', cost: 2, emoji: '☄️', sprite: 'card_p_cinderbolt',
