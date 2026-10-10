@@ -191,6 +191,9 @@ const RAW_CARDS = [
   { id: 'n_prisoner', name: 'Tortured Prisoner', type: 'minion', cost: 3, attack: 1, health: 4, emoji: '❔', sprite: 'card_n_prisoner',
     text: 'Whenever this takes damage, draw a card.', onDamaged: [{ type: 'draw', count: 1 }] },
   { id: 'n_troll', name: 'Armored Troll', type: 'minion', cost: 6, attack: 6, health: 8, emoji: '❔', sprite: 'card_n_troll' },
+  { id: 'n_death', name: 'Bleeding Death', type: 'minion', cost: 8, attack: 5, health: 10, emoji: '❔', sprite: 'card_n_death',
+    keywords: { charge: true, windfury: true }, text: 'Dies at the end of this turn.',
+    endOfTurn: [{ type: 'destroy', to: 'self' }] },
 
   // ---------- Pyromancer ----------
   { id: 'p_cinderbolt', cls: 'pyromancer', name: 'Cinder Bolt', type: 'spell', cost: 2, emoji: '☄️', sprite: 'card_p_cinderbolt',
