@@ -3,9 +3,10 @@ import assert from 'node:assert/strict';
 import { Game } from '../src/engine.js';
 import { CARDS } from '../src/cards.js';
 import { nextAction, playTurn, mulliganChoice, silenceValue } from '../src/ai.js';
+import { VANILLA } from './testcards.js';
 import { cardKeywords } from '../src/cardview.js';
 
-const filler = Array(30).fill('n_ram');
+const filler = Array(30).fill(VANILLA);
 
 function setup() {
   const g = new Game({ classes: ['pyromancer', 'warlord'], decks: [filler, filler], seed: 1, firstPlayer: 0 });
@@ -48,7 +49,7 @@ test('Whispering Monk is a 3 mana 2/1 neutral with a targeted silence battlecry'
 test('silence removes printed keywords: Taunt and Divine Shield', () => {
   const g = setup();
   const maiden = play(g, 1, 'v_shieldmaiden');
-  const attacker = play(g, 0, 'n_ram');
+  const attacker = play(g, 0, VANILLA);
   assert.deepEqual(g.attackTargets(attacker.uid).map(t => t.uid), [maiden.uid], 'Taunt guards the hero');
   silence(g, 0, maiden);
   assert.equal(maiden.silenced, true);
@@ -69,11 +70,11 @@ test('silence undoes buffs and keywords granted by other cards, keeping damage t
   assert.equal(pup.keywords.taunt, undefined);
 
   // Damage is kept when the minion is below its printed Health.
-  const ram = play(g, 1, 'n_ram');                                 // 4/5
-  play(g, 1, 'n_tinker', { target: ram });                         // 5/6
-  ram.health = 2;
-  silence(g, 0, ram);
-  assert.deepEqual([ram.attack, ram.health, ram.maxHealth], [4, 2, 5]);
+  const dummy = play(g, 1, VANILLA);                               // 4/5
+  play(g, 1, 'n_tinker', { target: dummy });                       // 5/6
+  dummy.health = 2;
+  silence(g, 0, dummy);
+  assert.deepEqual([dummy.attack, dummy.health, dummy.maxHealth], [4, 2, 5]);
 });
 
 test('silence never kills a minion on its own', () => {
@@ -93,7 +94,7 @@ test('a silenced minion has no deathrattle', () => {
   silence(g, 0, snapjaw);
   silence(g, 0, golem);
   const hero = g.players[0].hero.health;
-  const killer = play(g, 0, 'n_ram');
+  const killer = play(g, 0, VANILLA);
   play(g, 0, 'p_cinderbolt', { target: snapjaw });
   g.attack(killer.uid, golem.uid);
   assert.equal(g.players[0].hero.health, hero, 'Snapjaw deathrattle did not fire');
@@ -118,7 +119,7 @@ test('a silenced minion has no triggered effects', () => {
 
 test('silencing an aura minion removes its aura; a silenced minion still gets a neighbour\'s aura', () => {
   const g = setup();
-  const left = play(g, 0, 'n_ram', { position: 0 });
+  const left = play(g, 0, VANILLA, { position: 0 });
   const totem = play(g, 0, 'n_warhorn', { position: 1 });
   const right = play(g, 0, 'n_mossling', { position: 2 });
   assert.deepEqual([left.attack, right.attack], [6, 4]);
@@ -136,7 +137,7 @@ test('silence removes Spell Damage, Freeze, Stealth and Poisonous', () => {
   assert.equal(g.spellDamage(0), 0);
 
   const adder = play(g, 1, 'n_adder');
-  const frozen = play(g, 1, 'n_ram');
+  const frozen = play(g, 1, VANILLA);
   play(g, 0, 'p_rimelance', { target: frozen });
   assert.equal(frozen.frozen, true);
   silence(g, 0, frozen);
