@@ -52,12 +52,12 @@ Like the archive, it's painted into a pixel buffer (`src/forge.js`), so `npm tes
 
 Quests are goals that track your progress across games, like achievements. Every finished game is added to your record, and a quest is marked complete (for good) once its goal is met. The quests are:
 
-- **Proven in Battle**: *win 5 games*.
+- **Proven in Battle**: *win 5 games*. Reward: five new neutral cards, hidden until you earn them.
 - **The Champion's Trials**: *win 5 games* as each class: the Trial of Flame (Pyromancer), Iron (Warlord), the Hunt (Stalker), Light (Oracle), the Shield (Vanguard) and Shadows (Shade). Completing all six unlocks a new game mode.
 
 - **Quests** on the main menu opens the Quest Board. Each quest is a parchment notice pinned to the board, showing your progress and a "Complete" stamp with the date once you've done it.
 - Beside the board, the **Adventurer's Record** shows your games, wins, losses, draws, win rate and best win streak, plus wins and losses for each champion you've played.
-- After a battle, the result screen shows your record. If the game moved a quest forward, **Continue** shows the progress: each bar fills from where it was, and a completed quest is stamped with a fanfare. When a quest completes the last of the trials, the new mode is announced too. The menu's Quests button then shows a "new" badge until you look.
+- After a battle, the result screen shows your record. If the game moved a quest forward, **Continue** shows the progress: each bar fills from where it was, and a completed quest is stamped with a fanfare. A quest with a reward reveals the cards it unlocks, and when a quest completes the last of the trials, the new mode is announced too. A reward you haven't been shown yet (say, for a quest you completed before it had one) is announced on the title screen instead. The menu's Quests button then shows a "new" badge until you look.
 - Stats and quests are saved in your browser's local storage.
 
 The board hangs in an adventurers' guild at first light, painted in pixel art like the other screens:
@@ -65,7 +65,7 @@ The board hangs in an adventurers' guild at first light, painted in pixel art li
 - Dawn glows through a window, where clouds and birds drift by, and a warm sunbeam full of dust slants across the room.
 - Lanterns flicker either side, and a packed rucksack, rope and rolled map wait on the bench below.
 
-Quests are defined in `src/progress.js`. Adding one is a single entry: an id, a title, a description, a goal, and a function that reads its progress from the stats.
+Quests are defined in `src/progress.js`. Adding one is a single entry: an id, a title, a description, a goal, and a function that reads its progress from the stats. An optional `reward: { cards }` keeps those cards (and any tokens they make) out of the library, the deck builder and every deck until the quest is complete; see `src/rewards.js`.
 
 ### Card library
 
@@ -169,6 +169,7 @@ src/library.js           the card library screen and its filters
 src/archive.js           the card library's archive backdrop, painted into a pixel buffer
 src/forge.js             the deck builder's forge backdrop, painted into a pixel buffer
 src/progress.js          win/loss stats and quests: recording games, quest progress, saving
+src/rewards.js           quest rewards: which cards are still locked, and announcing new ones once
 src/questscreen.js       the quest screen and the quest notices shown after a game
 src/questboard.js        the quest screen's guild-hall backdrop, painted into a pixel buffer
 src/pixelbuf.js          drawing helpers shared by the archive and forge scenes

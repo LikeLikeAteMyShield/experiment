@@ -11,6 +11,8 @@ export const RESULTS = ['win', 'loss', 'draw'];
 /**
  * Quest definitions. `progress(stats)` returns how far along the player is;
  * the quest completes when that reaches `goal`. To add a quest, add an entry.
+ * An optional `reward` is what completing it unlocks: `{ cards: [ids] }`.
+ * Reward cards (tokens included) stay hidden until then; see rewards.js.
  */
 // The Champion's Trials: win 5 games as each class the player can see.
 // Hidden classes (Celestial) have none. Completing them all unlocks
@@ -36,6 +38,7 @@ export const QUESTS = [
     text: 'Win 5 games.',
     goal: 5,
     progress: stats => stats.wins,
+    reward: { cards: ['n_prisoner', 'n_scout', 't_footsoldier', 'n_aura', 'n_troll', 'n_death'] },
   },
   ...CHAMPION_QUESTS,
 ];

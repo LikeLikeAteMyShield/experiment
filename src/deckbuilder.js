@@ -5,6 +5,7 @@
 
 import { CARDS, CLASSES, classArt, defaultHero } from './cards.js';
 import { loadUnlocks, isVisible } from './unlocks.js';
+import { lockedCards } from './rewards.js';
 import { cardHTML, esc } from './cardview.js';
 import { artHTML } from './pixelart.js';
 import { filterCards, sortCards, CLASS_ORDER, COST_FILTERS } from './library.js';
@@ -36,6 +37,7 @@ export function mountDeckBuilder(root, { onBack, onUse, notify, sounds = {} }) {
     tab: 'class',            // editor collection tab: 'class' | 'neutral'
     query: '', cost: null,
     showDeck: false,         // narrow screens: deck list expanded
+    unlocks: {}, locked: new Set(),   // hidden classes unlocked; quest reward cards still locked
   };
 
   root.innerHTML = '<div class="lib-wrap db-wrap"></div>';
@@ -68,7 +70,7 @@ export function mountDeckBuilder(root, { onBack, onUse, notify, sounds = {} }) {
   }
 
   function deckTile(d) {
-    const problems = deckProblems(d);
+    const problems = deckProblems(d, state.locked);
     const confirming = state.confirmDelete === d.id;
     return `
       <div class="db-tile" style="--cls:${classColor(d.cls)}" data-id="${d.id}">
@@ -166,7 +168,7 @@ export function mountDeckBuilder(root, { onBack, onUse, notify, sounds = {} }) {
   function renderCollection() {
     const d = state.deck;
     const cls = state.tab === 'class' ? d.cls : 'neutral';
-    const cards = sortCards(filterCards(Object.values(CARDS), { cls, query: state.query, cost: state.cost, unlocks: state.unlocks }));
+    const cards = sortCards(filterCards(Object.values(CARDS), { cls, query: state.query, cost: state.cost, unlocks: state.unlocks, locked: state.locked }));
     const counts = countCards(d.cards);
     const full = d.cards.length >= DECK_SIZE;
     wrap.querySelectorAll('.lib-tab').forEach(t => {
@@ -197,7 +199,7 @@ export function mountDeckBuilder(root, { onBack, onUse, notify, sounds = {} }) {
     const ids = sortIds(Object.keys(counts));
     const curve = manaCurve(d.cards);
     const peak = Math.max(4, ...curve);
-    const problems = deckProblems(d);
+    const problems = deckProblems(d, state.locked);
     const panel = wrap.querySelector('.db-deck');
     panel.classList.toggle('open', state.showDeck);
     panel.querySelector('.db-deck-head').setAttribute('aria-expanded', String(state.showDeck));
@@ -252,10 +254,10 @@ export function mountDeckBuilder(root, { onBack, onUse, notify, sounds = {} }) {
   }
 
   function add(id) {
-    const why = addBlocker(state.deck, id);
+    const why = addBlocker(state.deck, id, state.locked);
     if (why) return notify(why);
     sounds.add?.();
-    change(addCard(state.deck, id));
+    change(addCard(state.deck, id, state.locked));
   }
 
   function remove(id) {
@@ -303,10 +305,10 @@ export function mountDeckBuilder(root, { onBack, onUse, notify, sounds = {} }) {
       case 'delete-yes': state.decks = removeDeck(tileId); state.confirmDelete = null; return render();
       case 'use': {
         const d = tileId ? state.decks.find(x => x.id === tileId) : state.deck;
-        if (d && !deckProblems(d).length) onUse(d.cls, d.id);
+        if (d && !deckProblems(d, state.locked).length) onUse(d.cls, d.id);
         return;
       }
-      case 'fill': return change(autoFill(state.deck));
+      case 'fill': return change(autoFill(state.deck, Math.random, state.locked));
       case 'clear':
         if (!state.confirmClear) { state.confirmClear = true; return renderDeck(); }
         return change({ ...state.deck, cards: [] });
@@ -354,6 +356,7 @@ export function mountDeckBuilder(root, { onBack, onUse, notify, sounds = {} }) {
   return ({ editId } = {}) => {
     state.decks = loadDecks();
     state.unlocks = loadUnlocks();
+    state.locked = lockedCards(undefined, state.unlocks);
     state.confirmDelete = null;
     if (editId && state.decks.some(d => d.id === editId)) return edit(editId);
     state.view = 'list';

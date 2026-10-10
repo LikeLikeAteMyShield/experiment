@@ -109,4 +109,5 @@ node --test --test-name-pattern="silence" test/*.test.js   # tests whose name ma
 ### Persistence
 - Everything is saved in `localStorage` under `riftclash-*` keys (decks, deck choice, progress, quests-seen, library tab, music, muted).
 - Every read and write is wrapped in try/catch, and loaded data goes through a `sanitize*` function (unknown cards, classes or quests are dropped; bad numbers become 0). Keep that pattern for new saved data.
-- Quests are entries in `QUESTS` in `src/progress.js`: `{ id, title, text, goal, progress(stats) }`. Completion is stored with a timestamp and is permanent.
+- Quests are entries in `QUESTS` in `src/progress.js`: `{ id, title, text, goal, progress(stats), reward? }`. Completion is stored with a timestamp and is permanent.
+- **Quest rewards** (`src/rewards.js`): `reward: { cards }` keeps those cards locked until the quest is complete (list a reward card's tokens too). `lockedCards()` gives the locked ids; pass that set as `locked` to `filterCards`, the `decks.js` rules (`isPlayable`, `addBlocker`, `autoFill`, ...), `buildDeck` and `new Game({ locked })`. Each reward is announced once (`riftclash-rewards-seen` stores the card ids): on the result screen, or by a title-screen notice for rewards not yet shown, such as a quest completed before it had one. The play-test code unlocks reward cards too.

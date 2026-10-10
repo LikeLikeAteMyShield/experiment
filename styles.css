@@ -862,6 +862,21 @@ body.on-menu .play-head h2 { text-shadow: 0 2px 8px #000; }
 .result-unlock small { display: block; font-family: Inter, sans-serif; font-weight: 700; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: #d9c8ff; }
 @keyframes result-unlock { from { transform: scale(.6); opacity: 0; } }
 
+/* Quest rewards: on the result screen when a game earns them, or as a title-screen notice for ones not yet shown. */
+.reward-cards { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; --card-w: clamp(72px, 13vh, 104px); }
+.reward-card { padding: 8px 6px 10px; animation: result-unlock .6s cubic-bezier(.3, 1.5, .5, 1) both; }
+.reward-card:nth-child(2) { animation-delay: .08s; } .reward-card:nth-child(3) { animation-delay: .16s; }
+.reward-card:nth-child(4) { animation-delay: .24s; } .reward-card:nth-child(5) { animation-delay: .32s; }
+.reward-card:nth-child(n+6) { animation-delay: .4s; }
+.result-reward { margin: 4px 0 12px; }
+.result-reward small, .q-reward { display: block; margin: 0 0 8px; font-weight: 700; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--gold); }
+.q-note .q-reward { margin: 8px 0 0; color: #7a4a10; }
+#reward-notice { position: fixed; inset: 0; background: #000a; display: grid; place-items: center; z-index: 71; padding: 16px; }
+#reward-notice .overlay-box { max-width: 720px; max-height: calc(100dvh - 32px); overflow-y: auto; }
+#reward-notice h2 { font-size: clamp(28px, 6vw, 40px); }
+#reward-text { margin: 0 0 18px; line-height: 1.5; }
+#reward-list { margin-bottom: 20px; }
+
 /* ---------------------------------------------------------------- splash screen */
 
 #splash {

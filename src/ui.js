@@ -12,6 +12,7 @@ import { MODES, availableModes, isModeUnlocked, unlockProgress, bossChoices } fr
 import { mountQuests, questNoticeHTML, unseenCompleted } from './questscreen.js';
 import { recordGame, questStatus, loadProgress } from './progress.js';
 import { visibleClasses, sequenceMatcher, SECRET_CODE, togglePlaytest } from './unlocks.js';
+import { lockedCards, rewardCards, unseenRewards, markRewardsSeen } from './rewards.js';
 import { createQuestBoard, questBoardWidth } from './questboard.js';
 import { mountDeckBuilder } from './deckbuilder.js';
 import { STANDARD_DECK, loadDecks, isPlayable, loadDeckChoice, saveDeckChoice } from './decks.js';
@@ -153,9 +154,10 @@ function renderDeckSelect(sel) {
   }
   const decks = loadDecks().filter(d => d.cls === ui.playerClass).sort((a, b) => a.name.localeCompare(b.name));
   const choice = loadDeckChoice()[ui.playerClass];
-  const chosen = decks.find(d => d.id === choice && isPlayable(d))?.id ?? STANDARD_DECK;
+  const locked = lockedCards();
+  const chosen = decks.find(d => d.id === choice && isPlayable(d, locked))?.id ?? STANDARD_DECK;
   sel.innerHTML = `<option value="${STANDARD_DECK}">Standard deck</option>` + decks.map(d => {
-    const ok = isPlayable(d);
+    const ok = isPlayable(d, locked);
     return `<option value="${d.id}"${ok ? '' : ' disabled'}${d.id === chosen ? ' selected' : ''}>${esc(d.name)}${ok ? '' : ` (${d.cards.length}/30, unfinished)`}</option>`;
   }).join('');
   sel.disabled = false;
@@ -165,7 +167,7 @@ function renderDeckSelect(sel) {
 function chosenDeck() {
   const id = loadDeckChoice()[ui.playerClass];
   const deck = loadDecks().find(d => d.id === id && d.cls === ui.playerClass);
-  return deck && isPlayable(deck) ? deck.cards : undefined;
+  return deck && isPlayable(deck, lockedCards()) ? deck.cards : undefined;
 }
 
 for (const sel of ['#deck-select', '#boss-deck-select']) {
@@ -226,6 +228,31 @@ $('#quests-btn').addEventListener('click', () => {
   openQuests();
 });
 
+/** Reward cards as a row of small card faces (each wrapped, as a card's padding is relative to its parent's width). */
+const rewardCardsHTML = ids => `<div class="reward-cards">${ids.map(id => `<div class="reward-card">${cardHTML(id)}</div>`).join('')}</div>`;
+
+/**
+ * Tell the player about quest rewards they haven't seen yet, on the title
+ * screen: rewards from quests completed before the quest had one (a game that
+ * completes a quest shows its reward on the result screen instead).
+ */
+function showRewardNotice() {
+  const box = $('#reward-notice');
+  if (document.body.classList.contains('on-splash') || !box.classList.contains('hidden')) return;
+  const rewards = unseenRewards();
+  if (!rewards.length) return;
+  const ids = rewards.flatMap(r => r.cards);
+  const quests = rewards.map(r => `<b>${esc(r.quest.title)}</b>`).join(', ');
+  $('#reward-text').innerHTML = `For completing ${quests}, ${ids.length === 1 ? 'a new card joins' : `${ids.length} new cards join`} your collection. Find them in the Library and the Deck Builder.`;
+  $('#reward-list').innerHTML = rewardCardsHTML(ids);
+  box.classList.remove('hidden');
+  sfx.questComplete();
+  fx.flash('#ffd27a', 500, 0.25);
+  const ok = $('#reward-ok');
+  ok.focus({ preventScroll: true });
+  ok.onclick = () => { sfx.click(); markRewardsSeen(ids); box.classList.add('hidden'); };
+}
+
 /** The menu's Quests button shows how many quests were completed since the player last looked. */
 function renderQuestBadge() {
   const n = unseenCompleted().length;
@@ -267,7 +294,7 @@ let menuScene = null, archive = null, forge = null, questBoard = null;
 
 function showScreen(id) {
   for (const s of ['menu', 'play', 'bosses', 'library', 'decks', 'quests', 'mulligan', 'table']) $('#' + s).classList.toggle('hidden', s !== id);
-  if (id === 'menu') renderTitle();   // a game may have unlocked a mode
+  if (id === 'menu') { renderTitle(); showRewardNotice(); }   // a game may have unlocked a mode or earned a reward
   document.body.classList.toggle('in-game', id === 'table');
   showBackdrop(id === 'mulligan' || id === 'table');
   // The title and the modes' setup screens share the battle scene and the menu theme.
@@ -296,7 +323,8 @@ function opponentHero() {
 function startGame() {
   // The player plays their class's default hero; the class decides the cards.
   const heroes = [CLASSES[ui.playerClass].defaultHero, opponentHero()];
-  ui.game = new Game({ heroes, decks: [chosenDeck()], seed: Date.now() });
+  // Built decks (the standard deck and the AI's) leave out reward cards the player hasn't earned.
+  ui.game = new Game({ heroes, decks: [chosenDeck()], locked: lockedCards(), seed: Date.now() });
   ui.selection = null;
   setBusy(false);
   ui.mulliganPicks = new Set();
@@ -1079,6 +1107,18 @@ async function showQuestProgress(run, shown, before, just, unlocked) {
       slot.insertAdjacentHTML('beforebegin', '<p class="result-quest-done">Quest complete!</p>');
       sfx.questComplete();
       await sleep(1200);
+      // Its reward: the cards it unlocks.
+      const cards = rewardCards(q);
+      if (cards.length && ui.resultRun === run) {
+        slot.insertAdjacentHTML('afterend', `
+          <div class="result-reward">
+            <small>${cards.length === 1 ? 'New card unlocked' : `${cards.length} new cards unlocked`}</small>
+            ${rewardCardsHTML(cards)}
+          </div>`);
+        markRewardsSeen(cards);
+        fx.flash('#ffd27a', 500, 0.25);
+        await sleep(1600);
+      }
     }
   }
   // Completing the last of a mode's quests unlocks it: the grand finale.
@@ -1372,7 +1412,7 @@ function mountSplash() {
     fx.flash('#c58cff', 500, 0.25);
     splash.classList.add('leaving');
     document.body.classList.remove('on-splash');
-    setTimeout(() => { splash.classList.add('hidden'); scene.show(false); }, 1100);
+    setTimeout(() => { splash.classList.add('hidden'); scene.show(false); showRewardNotice(); }, 1100);
   };
   splash.addEventListener('pointerdown', dismiss);
   addEventListener('keydown', dismiss, { capture: true });
