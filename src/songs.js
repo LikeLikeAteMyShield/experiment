@@ -79,7 +79,7 @@ const FROZEN_CHORDS = ['Em', 'Csus', 'G', 'Dsus', 'Em', 'C', 'Am', 'B', 'Em', 'C
 const MOONWOOD_CHORDS = ['F#m', 'E', 'F#m', 'C#m', 'F#m', 'E', 'D', 'E', 'F#m', 'A', 'E', 'C#m', 'D', 'E', 'C#m', 'F#m'];
 const SANCTUM_CHORDS = ['Bm', 'Gm', 'Bm', 'F', 'Bm', 'Gm', 'Em', 'F#', 'Bm', 'D', 'Gm', 'F', 'Em', 'Gm', 'F#', 'Bm'];
 const FORGE_CHORDS = ['Dm', 'Dm', 'Bb', 'C', 'Dm', 'Dm', 'Gm', 'A', 'Dm', 'F', 'C', 'Gm', 'Bb', 'C', 'A', 'Dm'];
-const CRYPT_CHORDS = ['Bm', 'G', 'A', 'Em', 'Bm', 'G', 'A', 'Em'];
+const CRYPT_CHORDS = ['Bm', 'G', 'A', 'Em', 'F#m', 'Gm', 'A', 'F#m', 'Bm', 'G', 'A', 'Em', 'F#m', 'Gm', 'A', 'F#m'];
 
 export const SONGS = {
   // Main menu: a marching battle theme in C minor. Heavier and a touch slower than
@@ -674,11 +674,19 @@ export const SONGS = {
           'B4 - - - - - - - . . . . . . F#4 -',
           'G4 - - - - - - - . . . . F#4 - G4 -',
           'A4 - - - - - - - . . . . F#4 - F4 -',
-          'E4 - - - - - - - . . . . A4 - Bb4 -',
+          'E4 - - - - - - - . . . . . . F4 -',
+          'F#4 - - - - - - - . . . . F4 - F#4 -',
+          'G4 - - - - - - - . . . . . . Ab4 -',
+          'A4 - - - - - - - . . . . Ab4 - G4 -',
+          'F#4 - - - - - - - . . . . A4 - Bb4 -',
           'B4 - - - - - - - . . . . . . F#4 -',
           'G4 - - - - - - - . . . . F#4 - G4 -',
           'A4 - - - - - - - . . . . F#4 - F4 -',
-          'E4 - - - - - - - . . . . . . . .',
+          'E4 - - - - - - - . . . . . . F4 -',
+          'F#4 - - - - - - - . . . . F4 - F#4 -',
+          'G4 - - - - - - - . . . . . . Ab4 -',
+          'A4 - - - - - - - . . . . Ab4 - G4 -',
+          'F#4 - - - - - - - . . . . A4 - Bb4 -',
         ],
       },
       pad: {
@@ -691,7 +699,7 @@ export const SONGS = {
       },
       drums: {
         wave: 'noise', volume: 0.05,
-        bars: repeat('k . . . t . . . a . . . . . . .', 8),
+        bars: repeat('k . . . t . . . a . . . . . . .', 16),
       },
       lute: {
         wave: 'pulse25', volume: 0.05, filter: 1450, env: { a: 0.003, d: 0.44, s: 0.1, r: 0.15 },
