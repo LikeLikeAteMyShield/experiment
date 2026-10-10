@@ -177,7 +177,7 @@ const RAW_CARDS = [
     keywords: { charge: true } },
   { id: 'n_sorcerer', name: 'Hexbolt Sorcerer', type: 'minion', cost: 5, attack: 4, health: 4, emoji: '🧙', sprite: 'card_n_sorcerer',
     text: 'Battlecry: Deal 3 damage.', target: 'any', battlecry: [{ type: 'damage', amount: 3, to: 'target' }] },
-  { id: 'n_dervish', name: 'Whirling Dervish', type: 'minion', cost: 5, attack: 3, health: 5, emoji: '🌪️', sprite: 'card_n_dervish',
+  { id: 'n_dervish', name: 'Maypole of Doom', type: 'minion', cost: 5, attack: 3, health: 5, emoji: '🌪️', sprite: 'card_n_dervish',
     keywords: { windfury: true } },
   { id: 'n_sentinel', name: 'Granite Sentinel', type: 'minion', cost: 5, attack: 4, health: 6, emoji: '🗿', sprite: 'card_n_sentinel',
     keywords: { taunt: true } },
