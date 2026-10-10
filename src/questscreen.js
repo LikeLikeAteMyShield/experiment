@@ -7,6 +7,7 @@ import { esc } from './cardview.js';
 import { artHTML } from './pixelart.js';
 import { loadProgress, questStatus, winRate } from './progress.js';
 import { loadUnlocks, isVisible } from './unlocks.js';
+import { rewardText } from './rewards.js';
 
 const SEEN_KEY = 'riftclash-quests-seen';
 
@@ -35,6 +36,7 @@ export function questNoticeHTML(q, { fresh = false, compact = false } = {}) {
         <span style="width:${pct}%"></span>
       </div>
       <p class="q-count">${q.value} / ${q.goal}</p>
+      ${rewardText(q) ? `<p class="q-reward">${rewardText(q)}</p>` : ''}
       ${q.done ? `<span class="q-stamp">Complete${q.completedAt && !compact ? `<small>${dateText(q.completedAt)}</small>` : ''}</span>` : ''}
     </article>`;
 }

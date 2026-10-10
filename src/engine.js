@@ -28,7 +28,7 @@ export class Game {
    * @param {number} [opts.seed]
    * @param {number} [opts.firstPlayer] 0 or 1; random if omitted
    */
-  constructor({ heroes, classes, decks, seed = Date.now(), firstPlayer } = {}) {
+  constructor({ heroes, classes, decks, locked, seed = Date.now(), firstPlayer } = {}) {
     heroes ??= classes?.map(cls => {
       if (!CLASSES[cls]) throw new Error(`Unknown class "${cls}"`);
       return CLASSES[cls].defaultHero;
@@ -48,7 +48,7 @@ export class Game {
     this.fxSeq = 0;
     this.combat = false;
     this.current = firstPlayer ?? (this.rand() < 0.5 ? 0 : 1);
-    this.players = [0, 1].map(i => this.#createPlayer(i, heroes[i], decks?.[i] ?? buildDeck(HEROES[heroes[i]].cls, this.rand)));
+    this.players = [0, 1].map(i => this.#createPlayer(i, heroes[i], decks?.[i] ?? buildDeck(HEROES[heroes[i]].cls, this.rand, locked)));
     this.mulliganDone = [false, false];
     // Opening hands: 3 for the player going first, 4 for the other.
     for (const p of this.players) {

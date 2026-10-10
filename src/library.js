@@ -3,6 +3,7 @@
 
 import { CARDS, CLASSES, cardText, classArt } from './cards.js';
 import { loadUnlocks, isVisible } from './unlocks.js';
+import { lockedCards } from './rewards.js';
 import { cardHTML, keywordHelpHTML, esc } from './cardview.js';
 import { artHTML } from './pixelart.js';
 
@@ -20,11 +21,12 @@ const className = cls => CLASSES[cls]?.name ?? 'Neutral';
  * @param {number|string|null} [f.cost]  exact cost, '7+', or null for any
  * @param {boolean} [f.tokens] include non-collectible tokens
  * @param {object} [f.unlocks] unlocked hidden classes (see unlocks.js); locked hidden classes' cards never show
+ * @param {Set<string>} [f.locked] ids of quest reward cards not yet earned (see rewards.js); they never show
  */
-export function filterCards(cards, { cls = 'all', query = '', cost = null, tokens = false, unlocks = {} } = {}) {
+export function filterCards(cards, { cls = 'all', query = '', cost = null, tokens = false, unlocks = {}, locked = new Set() } = {}) {
   const q = query.trim().toLowerCase();
   return cards.filter(c =>
-    isVisible(c.cls, unlocks) &&
+    isVisible(c.cls, unlocks) && !locked.has(c.id) &&
     (tokens || !c.token) &&
     (cls === 'all' || c.cls === cls) &&
     (cost == null || (cost === '7+' ? c.cost >= 7 : c.cost === cost)) &&
@@ -45,7 +47,7 @@ const STORE_KEY = 'riftclash-library-class';
  * @param {{ onBack: () => void }} opts
  */
 export function mountLibrary(root, { onBack }) {
-  const state = { cls: 'all', query: '', cost: null, tokens: false, list: [], open: -1, unlocks: {} };
+  const state = { cls: 'all', query: '', cost: null, tokens: false, list: [], open: -1, unlocks: {}, locked: new Set() };
   try { state.cls = localStorage.getItem(STORE_KEY) || 'all'; } catch { /* storage unavailable */ }
   if (state.cls !== 'all' && !CLASS_ORDER.includes(state.cls)) state.cls = 'all';
 
@@ -192,6 +194,7 @@ export function mountLibrary(root, { onBack }) {
   return () => {
     // Unlocks can change between visits (and a remembered tab may now be hidden).
     state.unlocks = loadUnlocks();
+    state.locked = lockedCards(undefined, state.unlocks);
     if (state.cls !== 'all' && !isVisible(state.cls, state.unlocks)) state.cls = 'all';
     closeCard();
     renderTabs();

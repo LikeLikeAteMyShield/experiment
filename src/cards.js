@@ -395,12 +395,14 @@ const CLASS_PAIRS = 8;
 
 /**
  * Build a 30-card deck: two copies of each class card (16) plus seven
- * neutral pairs (14) picked to give a reasonable mana curve.
+ * neutral pairs (14) picked to give a reasonable mana curve. `locked` card
+ * ids (unearned quest rewards, see rewards.js) are left out.
  */
 
-export function buildDeck(cls, rand = Math.random) {
-  let classCards = Object.values(CARDS).filter(c => !c.token && c.cls === cls);
-  const neutrals = Object.values(CARDS).filter(c => !c.token && c.cls === 'neutral');
+export function buildDeck(cls, rand = Math.random, locked = new Set()) {
+  const pool = Object.values(CARDS).filter(c => !c.token && !locked.has(c.id));
+  let classCards = pool.filter(c => c.cls === cls);
+  const neutrals = pool.filter(c => c.cls === 'neutral');
   const pick = (pool, n) => {
     const copy = [...pool];
     const out = [];

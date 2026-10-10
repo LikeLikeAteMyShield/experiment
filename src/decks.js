@@ -12,12 +12,15 @@ export const STANDARD_DECK = 'standard';
 const DECKS_KEY = 'riftclash-decks';
 const CHOICE_KEY = 'riftclash-deck-choice';
 
-/** Cards a deck of this class may contain: the class's own cards plus neutrals, no tokens. */
-export const deckPool = cls => Object.values(CARDS).filter(c => !c.token && (c.cls === cls || c.cls === 'neutral'));
+// `locked` is a set of card ids the player hasn't unlocked yet (see rewards.js).
+const NONE = new Set();
 
-export function canInclude(cls, cardId) {
+/** Cards a deck of this class may contain: the class's own cards plus neutrals, no tokens, nothing locked. */
+export const deckPool = (cls, locked = NONE) => Object.values(CARDS).filter(c => canInclude(cls, c.id, locked));
+
+export function canInclude(cls, cardId, locked = NONE) {
   const c = CARDS[cardId];
-  return !!c && !c.token && (c.cls === cls || c.cls === 'neutral');
+  return !!c && !c.token && !locked.has(cardId) && (c.cls === cls || c.cls === 'neutral');
 }
 
 /** { cardId: copies } */
@@ -28,7 +31,8 @@ export function countCards(cards) {
 }
 
 /** Why a card can't be added right now, or null if it can. */
-export function addBlocker(deck, cardId) {
+export function addBlocker(deck, cardId, locked = NONE) {
+  if (locked.has(cardId)) return `${CARDS[cardId]?.name ?? 'That card'} is still locked.`;
   if (!canInclude(deck.cls, cardId)) return `${CARDS[cardId]?.name ?? 'That card'} can't go in a ${CLASSES[deck.cls].name} deck.`;
   if (deck.cards.length >= DECK_SIZE) return `The deck is full (${DECK_SIZE} cards).`;
   if ((countCards(deck.cards)[cardId] ?? 0) >= MAX_COPIES) return `Only ${MAX_COPIES} copies of ${CARDS[cardId].name} allowed.`;
@@ -36,8 +40,8 @@ export function addBlocker(deck, cardId) {
 }
 
 /** A copy of the deck with one more copy of the card, or the same deck if it can't be added. */
-export function addCard(deck, cardId) {
-  return addBlocker(deck, cardId) ? deck : { ...deck, cards: sortIds([...deck.cards, cardId]) };
+export function addCard(deck, cardId, locked = NONE) {
+  return addBlocker(deck, cardId, locked) ? deck : { ...deck, cards: sortIds([...deck.cards, cardId]) };
 }
 
 /** A copy of the deck with one copy of the card removed. */
@@ -60,19 +64,20 @@ export function sortIds(ids) {
 export const cleanName = name => String(name ?? '').replace(/\s+/g, ' ').trim().slice(0, MAX_NAME_LENGTH);
 
 /** Every rule the deck breaks; an empty list means it can be played. */
-export function deckProblems(deck) {
+export function deckProblems(deck, locked = NONE) {
   const problems = [];
   if (!CLASSES[deck.cls]) return ['Unknown class.'];
   if (!cleanName(deck.name)) problems.push('Give the deck a name.');
   if (deck.cards.length !== DECK_SIZE) problems.push(`A deck needs exactly ${DECK_SIZE} cards (it has ${deck.cards.length}).`);
   for (const [id, n] of Object.entries(countCards(deck.cards))) {
-    if (!canInclude(deck.cls, id)) problems.push(`${CARDS[id]?.name ?? id} can't go in this deck.`);
+    if (locked.has(id)) problems.push(`${CARDS[id].name} is still locked.`);
+    else if (!canInclude(deck.cls, id)) problems.push(`${CARDS[id]?.name ?? id} can't go in this deck.`);
     else if (n > MAX_COPIES) problems.push(`Too many copies of ${CARDS[id].name}.`);
   }
   return problems;
 }
 
-export const isPlayable = deck => deckProblems(deck).length === 0;
+export const isPlayable = (deck, locked = NONE) => deckProblems(deck, locked).length === 0;
 
 /** Number of cards at each cost, with 7 and above together in the last slot. */
 export function manaCurve(cards) {
@@ -85,10 +90,10 @@ export function manaCurve(cards) {
  * Fill the deck up to 30 cards: first the class's own cards, then neutrals
  * picked to fill out the mana curve. Never removes anything.
  */
-export function autoFill(deck, rand = Math.random) {
+export function autoFill(deck, rand = Math.random, locked = NONE) {
   let d = deck;
-  const pool = deckPool(deck.cls);
-  const tryAdd = id => { const next = addCard(d, id); const ok = next !== d; d = next; return ok; };
+  const pool = deckPool(deck.cls, locked);
+  const tryAdd = id => { const next = addCard(d, id, locked); const ok = next !== d; d = next; return ok; };
   // Class cards are what make a deck feel like its class, so they go in first.
   for (const c of pool.filter(c => c.cls === deck.cls)) while (d.cards.length < DECK_SIZE && tryAdd(c.id));
   // Then neutrals, at whichever cost bracket is furthest below a sensible curve.
