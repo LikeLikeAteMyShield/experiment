@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import { Game } from '../src/engine.js';
 import { CARDS, CLASSES, buildDeck } from '../src/cards.js';
 import { playTurn, mulliganChoice, nextAction, applyAction } from '../src/ai.js';
+import { VANILLA } from './testcards.js';
 
-const filler = Array(30).fill('n_ram');
+const filler = Array(30).fill(VANILLA);
 
 /** A started game where player 0 goes first with full mana and an empty hand. */
 function setup({ classes = ['pyromancer', 'warlord'], mana = 10 } = {}) {
@@ -63,8 +64,8 @@ test('mulligan keeps hand size', () => {
 
 test('minions are summoning sick unless charge/rush', () => {
   const g = setup();
-  const ram = put(g, 0, 'n_ram', { awake: false });
-  assert.equal(g.canAttack(ram.uid), false);
+  const dummy = put(g, 0, VANILLA, { awake: false });
+  assert.equal(g.canAttack(dummy.uid), false);
   const hawk = put(g, 0, 's_hawk', { awake: false });
   assert.equal(g.canAttack(hawk.uid), true);
   const herald = put(g, 0, 'n_herald', { awake: false });
@@ -84,7 +85,7 @@ test('combat trades damage and removes dead minions', () => {
 
 test('taunt must be attacked first; stealth cannot be targeted', () => {
   const g = setup();
-  const a = put(g, 0, 'n_ram');
+  const a = put(g, 0, VANILLA);
   const boar = put(g, 1, 'n_boar');
   put(g, 1, 'n_lurker');
   assert.deepEqual(g.attackTargets(a.uid).map(t => t.uid), [boar.uid]);
@@ -100,11 +101,11 @@ test('divine shield, poisonous and lifesteal', () => {
   assert.equal(shield.keywords.divineShield, false);
   assert.equal(shield.health, 1);
 
-  const ram = put(g, 1, 'n_ram');
+  const dummy = put(g, 1, VANILLA);
   adder.attacksThisTurn = 0;
   g.players[1].board = g.players[1].board.filter(m => m !== shield);
-  g.attack(adder.uid, ram.uid);
-  assert.ok(!g.players[1].board.includes(ram), 'poison kills');
+  g.attack(adder.uid, dummy.uid);
+  assert.ok(!g.players[1].board.includes(dummy), 'poison kills');
 
   g.players[0].hero.health = 20;
   const bat = put(g, 0, 'n_leechbat');
@@ -135,7 +136,7 @@ test('spell damage boosts spells but not hero powers', () => {
 
 test('freeze skips the next attack and thaws after', () => {
   const g = setup();
-  const target = put(g, 1, 'n_ram');
+  const target = put(g, 1, VANILLA);
   g.playCard(give(g, 0, 'p_rimelance'), { target: target.uid });
   assert.equal(target.frozen, true);
   g.endTurn();
@@ -205,7 +206,7 @@ test('fatigue damage grows and can end the game', () => {
 test('events carry source and effect ids for animations', () => {
   const g = setup({ classes: ['warlord', 'oracle'] });
   const berserker = put(g, 0, 'w_berserker');
-  put(g, 1, 'n_ram');
+  put(g, 1, VANILLA);
   g.takeEvents();
   g.playCard(give(g, 0, 'w_stomp'));
   const ev = g.takeEvents();
@@ -244,12 +245,12 @@ test('minions can be placed at a chosen position', () => {
   const g = setup();
   const a = put(g, 0, 'n_mossling');
   const b = put(g, 0, 'n_scrapper');
-  g.playCard(give(g, 0, 'n_ram'), { position: 1 });
-  assert.deepEqual(g.players[0].board.map(m => m.cardId), ['n_mossling', 'n_ram', 'n_scrapper']);
+  g.playCard(give(g, 0, VANILLA), { position: 1 });
+  assert.deepEqual(g.players[0].board.map(m => m.cardId), ['n_mossling', VANILLA, 'n_scrapper']);
   g.playCard(give(g, 0, 'n_boar'), { position: 0 });
   g.players[0].mana = 10;
   g.playCard(give(g, 0, 'n_leechbat'), { position: 99 }); // clamped to the right end
-  assert.deepEqual(g.players[0].board.map(m => m.cardId), ['n_boar', 'n_mossling', 'n_ram', 'n_scrapper', 'n_leechbat']);
+  assert.deepEqual(g.players[0].board.map(m => m.cardId), ['n_boar', 'n_mossling', VANILLA, 'n_scrapper', 'n_leechbat']);
   assert.ok(a && b);
 });
 
@@ -275,7 +276,7 @@ test('adjacent battlecries hit only the neighbors', () => {
   g.playCard(give(g, 0, 'n_bannerbearer'), { position: 1 }); // between mossling and scrapper
   assert.equal(left.attack, 3);
   assert.equal(far.attack, 4);
-  const edge = put(g, 0, 'n_ram');
+  const edge = put(g, 0, VANILLA);
   g.playCard(give(g, 0, 'n_sergeant'), { position: 4 }); // right end: one neighbor
   assert.equal(edge.keywords.taunt, true);
   assert.equal(edge.health, 6);
@@ -289,10 +290,10 @@ test('adjacency auras follow the board as minions come and go', () => {
   assert.equal(a.attack, 4);
   const b = put(g, 0, 'n_scrapper');      // 3 attack, lands right of the totem
   assert.equal(b.attack, 5);
-  const c = put(g, 0, 'n_ram');           // not adjacent
+  const c = put(g, 0, VANILLA);           // not adjacent
   assert.equal(c.attack, 4);
   b.health = 0;
-  g.endTurn();                            // scrapper dies; ram slides next to the totem
+  g.endTurn();                            // scrapper dies; dummy slides next to the totem
   assert.equal(c.attack, 6);
   totem.destroyed = true;
   g.endTurn();
@@ -305,7 +306,7 @@ test('AI places adjacency minions between its best minions', () => {
   g.current = 1;
   put(g, 1, 'n_mossling');
   put(g, 1, 'n_treant');
-  put(g, 1, 'n_ram');
+  put(g, 1, VANILLA);
   g.current = 1;
   give(g, 1, 'n_bannerbearer');
   const action = nextAction(g, 1);

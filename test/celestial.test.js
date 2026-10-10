@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import { Game } from '../src/engine.js';
 import { CARDS, CLASSES, HEROES, buildDeck } from '../src/cards.js';
 import { nextAction, playTurn, mulliganChoice } from '../src/ai.js';
+import { VANILLA } from './testcards.js';
 
-const filler = Array(30).fill('n_ram');
+const filler = Array(30).fill(VANILLA);
 
 /** A started game, player 0 (Aurion) first, full mana and empty hands. */
 function setup(heroes = ['aurion', 'brakka']) {
@@ -117,18 +118,18 @@ test('Unstable Nucleus has Windfury and hurts its own hero; Oblivion destroys ev
   const nuc = play(g, 0, 'c_nucleus');
   assert.equal(g.players[0].hero.health, 27);
   assert.equal(g.maxAttacks(nuc), 2);
-  play(g, 1, 'n_ram'); play(g, 1, 'v_shieldmaiden');
+  play(g, 1, VANILLA); play(g, 1, 'v_shieldmaiden');
   play(g, 0, 'c_oblivion');
   assert.equal(g.players[0].board.length + g.players[1].board.length, 0);
 });
 
 test('Starfire Bolt deals 5; Gravity Well damages and freezes the enemy board', () => {
   const g = setup();
-  const ram = play(g, 1, 'n_ram');
-  const ram2 = play(g, 1, 'n_ram');
+  const dummy = play(g, 1, VANILLA);
+  const dummy2 = play(g, 1, VANILLA);
   play(g, 0, 'c_gravity');
-  assert.ok(ram.frozen && ram2.frozen);
-  assert.equal(ram.health, 3);
+  assert.ok(dummy.frozen && dummy2.frozen);
+  assert.equal(dummy.health, 3);
   play(g, 0, 'c_starfire', g.players[1].hero);
   assert.equal(g.players[1].hero.health, 25);
 });
@@ -166,10 +167,10 @@ test('the AI never kills itself with Unstable Nucleus, and saves Oblivion for wh
   assert.equal(nextAction(g, 1)?.uid, undefined);
   p.hero.health = 30; p.hand = [];
   give(g, 1, 'c_oblivion');
-  play(g, 1, 'n_ram');
+  play(g, 1, VANILLA);
   p.mana = 10;
   assert.notEqual(nextAction(g, 1)?.type, 'play', 'ahead on board: hold Oblivion');
-  for (let i = 0; i < 3; i++) play(g, 0, 'n_ram');
+  for (let i = 0; i < 3; i++) play(g, 0, VANILLA);
   p.mana = 10;
   assert.deepEqual(nextAction(g, 1), { type: 'play', uid: p.hand[0].uid, target: null, position: null }, 'behind: wipe the board');
 });

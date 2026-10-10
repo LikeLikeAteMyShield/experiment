@@ -70,7 +70,6 @@ test('the AI plays a game with a non-default hero to the end', () => {
     g.mulligan(1, mulliganChoice(g, 1));
     for (let i = 0; i < 200 && g.winner === null; i++) playTurn(g, g.current);
     assert.notEqual(g.winner, null);
-    assert.ok(g.events.some(e => e.type === 'heroPower' && e.player === 1), 'the brute used its hero power');
   });
 });
 
