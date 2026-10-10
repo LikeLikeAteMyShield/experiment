@@ -197,6 +197,8 @@ const RAW_CARDS = [
     endOfTurn: [{ type: 'destroy', to: 'self' }] },
   { id: 'n_aura', name: 'Healing Aura', type: 'spell', cost: 0, emoji: '❔', sprite: 'card_n_aura',
     text: 'Restore 2 Health', target: 'any', effects: [{ type: 'heal', amount: 2, to: 'target' }] },
+  { id: 'n_scout', name: 'Goblin Scout', type: 'minion', cost: 2, attack: 2, health: 1, emoji: '❔', sprite: 'card_n_scout',
+    text: 'Battlecry: Summon a 1/1 Goblin Footsoldier.', battlecry: [{ type: 'summon', card: 't_footsoldier' }] },
 
   // ---------- Pyromancer ----------
   { id: 'p_cinderbolt', cls: 'pyromancer', name: 'Cinder Bolt', type: 'spell', cost: 2, emoji: '☄️', sprite: 'card_p_cinderbolt',
