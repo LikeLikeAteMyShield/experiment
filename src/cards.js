@@ -190,6 +190,7 @@ const RAW_CARDS = [
     battlecry: [{ type: 'damage', amount: 3, to: 'allOtherCharacters' }] },
   { id: 'n_prisoner', name: 'Tortured Prisoner', type: 'minion', cost: 3, attack: 1, health: 4, emoji: '❔', sprite: 'card_n_prisoner',
     text: 'Whenever this takes damage, draw a card.', onDamaged: [{ type: 'draw', count: 1 }] },
+  { id: 'n_troll', name: 'Armored Troll', type: 'minion', cost: 6, attack: 6, health: 8, emoji: '❔', sprite: 'card_n_troll' },
 
   // ---------- Pyromancer ----------
   { id: 'p_cinderbolt', cls: 'pyromancer', name: 'Cinder Bolt', type: 'spell', cost: 2, emoji: '☄️', sprite: 'card_p_cinderbolt',
