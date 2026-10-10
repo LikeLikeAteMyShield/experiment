@@ -133,6 +133,7 @@ const RAW_CARDS = [
   { id: 't_wolf', name: 'Dusk Wolf', type: 'minion', cost: 2, attack: 2, health: 2, emoji: '🐺', sprite: 'card_t_wolf', token: true, cls: 'stalker' },
   { id: 't_shardling', name: 'Shardling', type: 'minion', cost: 2, attack: 2, health: 2, emoji: '💎', sprite: 'card_t_shardling', token: true },
   { id: 't_shiv', name: 'Shiv', type: 'weapon', cost: 1, attack: 1, durability: 2, emoji: '🔪', sprite: 'card_t_shiv', token: true, cls: 'shade' },
+  { id: 't_footsoldier', name: 'Goblin Footsoldier', type: 'minion', cost: 1, attack: 1, health: 1, emoji: '❔', sprite: 'card_t_footsoldier', token: true },
 
   // ---------- Neutral ----------
   { id: 'n_mossling', name: 'Mossling', type: 'minion', cost: 1, attack: 2, health: 1, emoji: '🌱', sprite: 'card_n_mossling' },
